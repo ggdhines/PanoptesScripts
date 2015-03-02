@@ -7,6 +7,7 @@ import re
 import string
 import requests
 import csv
+import math
 
 # Remote host set to the panoptes staging API
 global host,hostapi
@@ -36,7 +37,7 @@ def get_bearer_token(user_name,password):
     csrf_token = csrf_line[first+1:second]
 
     #2. use the token to get a devise session via JSON stored in a cookie
-    devise_login_data=("{\"user\": {\"login\":\""+user_name+"\",\"password\":\""+password+
+    devise_login_data=("{\"user\": {\"display_name\":\""+user_name+"\",\"password\":\""+password+
                        "\"}, \"authenticity_token\": \""+csrf_token+"\"}")
     request = urllib2.Request(host+"users/sign_in",data=devise_login_data)
     request.add_header("Content-Type","application/json")
@@ -590,6 +591,49 @@ def create_workflow(workflow,token):
     workflowid = data["workflows"][0]["id"]
 
     return workflowid
-               
 
 
+
+def get_classifications(project_id,token,page=1,per_page=20):
+    """ Read in the annotations for the given project
+    :param project_id: the corresponding project id
+    :param token:
+    :return:
+    """
+
+    request = urllib2.Request(hostapi+"classifications?project_id="+str(project_id)+"&admin=1&page="+str(page)+"&per_page"+str(per_page),None)
+    request.add_header("Accept","application/vnd.api+json; version=1")
+    request.add_header("Authorization","Bearer "+token)
+
+    # request
+    classifications = None
+    try:
+        response = urllib2.urlopen(request)
+    except urllib2.HTTPError as e:
+        print 'In get_userid_from_username:'
+        print 'The server couldn\'t fulfill the request.'
+        print 'Error code: ', e.code
+        print 'Error response body: ', e.read()
+    except urllib2.URLError as e:
+        print 'We failed to reach a server.'
+        print 'Reason: ', e.reason
+    else:
+        # everything is fine
+        body = response.read()
+
+        # put it in json structure and extract id
+        classifications = json.loads(body)
+    return classifications
+  
+def get_all_classifications(project_id,token,page=1,per_page=20):
+    classification_page = get_classifications(project_id,token,page,per_page)
+    
+    num_classifications = classification_page["meta"]["classifications"]["count"]
+    num_pages = int(math.ceil(num_classifications/float(per_page)))
+    
+    classification_list = classification_page["classifications"]
+    for i in range(2,num_pages+1):
+      classification_page = get_classifications(project_id,token,i,per_page)
+      classification_list.extend(classification_page["classifications"])
+    return classification_list
+  

@@ -13,13 +13,16 @@ import math
 global host,hostapi
 host = "https://panoptes-staging.zooniverse.org/"
 hostapi = "https://panoptes-staging.zooniverse.org/api/"
+#host = "http://172.17.2.87:3000/"
+#hostapi = "http://172.17.2.87:3000/api/"
 
 def get_bearer_token(user_name,password):
     "Logs user in and gets a bearer token for the given user"
 
     # look like you're a zooniverse front end client
     app_client_id="535759b966935c297be11913acee7a9ca17c025f9f15520e7504728e71110a27"
-
+    #app_client_id="05fd85e729327b2f71cda394d8e87e042e0b77b05e05280e8246e8bdb05d54ed"
+    #app_client_id="05fd85e729327b2f71cda394d8e87e042e0b77b05e05280e8246e8bdb05d54ed"
     #0. Establish a cookie jar
     cj = cookielib.CookieJar()
     opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
@@ -27,6 +30,7 @@ def get_bearer_token(user_name,password):
     #1. get the csrf token
     request = urllib2.Request(host+"users/sign_in",None)
     response = opener.open(request)
+
     body = response.read()
 
     # grep for csrf-token
@@ -591,6 +595,63 @@ def create_workflow(workflow,token):
     workflowid = data["workflows"][0]["id"]
 
     return workflowid
+
+
+def create_aggregation(workflow_id,subject_id,token,aggregation):
+    assert type(aggregation) is dict
+    aggregation["workflow_version"] = "1.1"
+
+    json_values = { "admin": 1,
+                    'aggregations': {
+                                        'aggregation': aggregation,
+                                        'links': {
+                                            "workflow": str(workflow_id),
+                                            "subject":str(subject_id)
+                                        }
+                                    }
+    }
+    head = {'Content-Type':'application/json',
+            'Accept':'application/vnd.api+json; version=1',
+            'Authorization':'Bearer '+token}
+    response = requests.post(hostapi+'aggregations',headers=head,data=json.dumps(json_values))
+    #print hostapi+'aggregations'
+    return response.status_code,response.text
+
+
+def update_aggregation(workflow_id,subject_id,token,aggregation,etag):
+    assert type(aggregation) is dict
+    aggregation["workflow_version"] = "1.1"
+
+    json_values = { "admin": 1,
+                    'aggregations': {
+                                        'aggregation': aggregation,
+                                        'links': {
+                                            "workflow": str(workflow_id),
+                                            "subject":str(subject_id)
+                                        }
+                                    }
+    }
+    head = {'Content-Type':'application/json',
+            'Accept':'application/vnd.api+json; version=1',
+            'Authorization':'Bearer '+token,
+            'If-Match': etag }
+
+    response = requests.put(hostapi+'aggregations/1',headers=head,data=json.dumps(json_values))
+    #print hostapi+'aggregations'
+    print response.status_code
+    print response.text
+    print head
+
+
+def find_aggregation_etag(workflow_id,subject_id,token):
+    head = {'Content-Type':'application/json',
+            'Accept':'application/vnd.api+json; version=1',
+            'Authorization':'Bearer '+token}
+
+    response = requests.get(hostapi+"aggregations?subject_id="+str(subject_id)+"&workflow_id="+str(workflow_id)+"&admin=1",headers=head)
+
+    etag = response.headers['etag']
+    return etag
 
 
 

@@ -327,6 +327,30 @@ def get_membership_info_for_group(groupid,token):
 
     return mem_info
 
+def get_login_user_info(token):
+    request = urllib2.Request(hostapi+"me/")
+    request.add_header("Accept","application/vnd.api+json; version=1")
+    request.add_header("Authorization","Bearer "+token)
+
+    # request
+    try:
+        response = urllib2.urlopen(request)
+    except urllib2.HTTPError as e:
+        print 'The server couldn\'t fulfill the request.'
+        print 'Error code: ', e.code
+        print 'Error response body: ', e.read()
+    except urllib2.URLError as e:
+        print 'We failed to reach a server.'
+        print 'Reason: ', e.reason
+    else:
+        # everything is fine
+        body = response.read()
+
+    # put it in json structure and extract id
+    data = json.loads(body)
+
+    return data
+
 def create_group_project(groupid,projname,projdesc,token):
     "Create a project owned by a group"
 
@@ -596,6 +620,55 @@ def create_workflow(workflow,token):
 
     return workflowid
 
+def get_project_id(project_name,token):
+    request = urllib2.Request(hostapi+"projects?owner=zooniverse-beta&display_name="+project_name)
+    request.add_header("Accept","application/vnd.api+json; version=1")
+    request.add_header("Authorization","Bearer "+token)
+
+    # request
+    try:
+        response = urllib2.urlopen(request)
+    except urllib2.HTTPError as e:
+        print 'The server couldn\'t fulfill the request.'
+        print 'Error code: ', e.code
+        print 'Error response body: ', e.read()
+    except urllib2.URLError as e:
+        print 'We failed to reach a server.'
+        print 'Reason: ', e.reason
+    else:
+        # everything is fine
+        body = response.read()
+
+    # put it in json structure and extract id
+    data = json.loads(body)
+
+    return data["projects"][0]["id"]
+
+def get_workflow_id(project_id,token):
+    request = urllib2.Request(hostapi+"workflows?project_id="+project_id)
+    request.add_header("Accept","application/vnd.api+json; version=1")
+    request.add_header("Authorization","Bearer "+token)
+
+    # request
+    try:
+        response = urllib2.urlopen(request)
+    except urllib2.HTTPError as e:
+        print 'The server couldn\'t fulfill the request.'
+        print 'Error code: ', e.code
+        print 'Error response body: ', e.read()
+    except urllib2.URLError as e:
+        print 'We failed to reach a server.'
+        print 'Reason: ', e.reason
+    else:
+        # everything is fine
+        body = response.read()
+
+    # put it in json structure and extract id
+    data = json.loads(body)
+
+    return data["workflows"][0]['version']
+
+#https://panoptes-staging.zooniverse.org/api/projects?owner=zooniverse-beta&display_name=Supernovae
 
 def create_aggregation(workflow_id,subject_id,token,aggregation):
     assert type(aggregation) is dict
@@ -618,9 +691,9 @@ def create_aggregation(workflow_id,subject_id,token,aggregation):
     return response.status_code,response.text
 
 
-def update_aggregation(workflow_id,subject_id,token,aggregation,etag):
+def update_aggregation(workflow_id,workflow_version,subject_id,token,aggregation,etag):
     assert type(aggregation) is dict
-    aggregation["workflow_version"] = "1.1"
+    aggregation["workflow_version"] = str(workflow_version)
 
     json_values = { "admin": 1,
                     'aggregations': {
@@ -636,21 +709,49 @@ def update_aggregation(workflow_id,subject_id,token,aggregation,etag):
             'Authorization':'Bearer '+token,
             'If-Match': etag }
 
-    response = requests.put(hostapi+'aggregations/1',headers=head,data=json.dumps(json_values))
+    #print hostapi+'aggregations/1'
+    print hostapi+'aggregations/'+str(subject_id)
+    print etag
+    response = requests.put(hostapi+'aggregations/'+str(subject_id),headers=head,data=json.dumps(json_values))
     #print hostapi+'aggregations'
+    #print
+    print "==---"
     print response.status_code
     print response.text
     print head
-
 
 def find_aggregation_etag(workflow_id,subject_id,token):
     head = {'Content-Type':'application/json',
             'Accept':'application/vnd.api+json; version=1',
             'Authorization':'Bearer '+token}
 
-    response = requests.get(hostapi+"aggregations?subject_id="+str(subject_id)+"&workflow_id="+str(workflow_id)+"&admin=1",headers=head)
 
+    #print hostapi+"aggregations?subject_id="+str(subject_id)+"&workflow_id="+str(workflow_id)+"&admin=1"
+    response = requests.get(hostapi+"aggregations?subject_id="+str(subject_id)+"&workflow_id="+str(workflow_id)+"&admin=1",headers=head)
+    print response.text
+    #print response.headers
+    body = response.text
+
+    # put it in json structure and extract id
+    data = json.loads(response.text)
+    print data
+    #print
+    resource_id= data["aggregations"][0]["id"]
+    #print
+
+    print hostapi+"aggregations/"+str(resource_id)+"?admin=1"
+    assert False
+    response = requests.head(hostapi+"aggregations/"+str(resource_id)+"?admin=1",headers=head)
     etag = response.headers['etag']
+    print etag
+
+    #
+    # #response = requests.get(hostapi+"aggregations?subject_id="+str(subject_id)+"&workflow_id="+str(workflow_id)+"&admin=1",headers=head)
+    # print response.headers
+    #
+    #
+    # print response.headers
+
     return etag
 
 

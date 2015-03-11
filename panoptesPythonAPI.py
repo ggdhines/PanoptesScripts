@@ -714,12 +714,12 @@ def update_aggregation(workflow_id,workflow_version,subject_id,aggregation_id,to
     response = requests.put(hostapi+'aggregations/'+str(aggregation_id),headers=head,data=json.dumps(json_values))
     #print hostapi+'aggregations'
     #print
-    print "==---"
-    print hostapi+'aggregations/'+str(aggregation_id)
-    print etag
-    print response.status_code
-    print response.text
-    print head
+    # print "==---"
+    # print hostapi+'aggregations/'+str(aggregation_id)
+    # print etag
+    # print response.status_code
+    # print response.text
+    # print head
 
 def find_aggregation_etag(workflow_id,subject_id,token):
     head = {'Content-Type':'application/json',
@@ -735,7 +735,7 @@ def find_aggregation_etag(workflow_id,subject_id,token):
 
     # put it in json structure and extract id
     data = json.loads(response.text)
-    print data
+    #print data
 
     #print data
     #print
@@ -802,3 +802,17 @@ def get_all_classifications(project_id,token,page=1,per_page=20):
       classification_list.extend(classification_page["classifications"])
     return classification_list
   
+def classifications_iterator(project_id,token,page=1,per_page=20):
+    classification_page = get_classifications(project_id,token,page,per_page)
+
+    num_classifications = classification_page["meta"]["classifications"]["count"]
+    num_pages = int(math.ceil(num_classifications/float(per_page)))
+
+    for classification in classification_page["classifications"]:
+        yield classification
+
+    for i in range(2,num_pages+1):
+        classification_page = get_classifications(project_id,token,i,per_page)
+
+        for classification in classification_page["classifications"]:
+            yield classification

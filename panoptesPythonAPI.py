@@ -620,8 +620,8 @@ def create_workflow(workflow,token):
 
     return workflowid
 
-def get_project_id(project_name,token):
-    request = urllib2.Request(hostapi+"projects?owner=zooniverse-beta&display_name="+project_name)
+def get_project_id(project_name,token,owner="zooniverse-beta"):
+    request = urllib2.Request(hostapi+"projects?owner="+owner+"&display_name="+project_name)
     request.add_header("Accept","application/vnd.api+json; version=1")
     request.add_header("Authorization","Bearer "+token)
 
@@ -645,7 +645,7 @@ def get_project_id(project_name,token):
     return data["projects"][0]["id"]
 
 def get_workflow_id(project_id,token):
-    request = urllib2.Request(hostapi+"workflows?project_id="+project_id)
+    request = urllib2.Request(hostapi+"workflows?project_id="+str(project_id))
     request.add_header("Accept","application/vnd.api+json; version=1")
     request.add_header("Authorization","Bearer "+token)
 
@@ -691,7 +691,7 @@ def create_aggregation(workflow_id,subject_id,token,aggregation):
     return response.status_code,response.text
 
 
-def update_aggregation(workflow_id,workflow_version,subject_id,token,aggregation,etag):
+def update_aggregation(workflow_id,workflow_version,subject_id,aggregation_id,token,aggregation,etag):
     assert type(aggregation) is dict
     aggregation["workflow_version"] = str(workflow_version)
 
@@ -710,12 +710,13 @@ def update_aggregation(workflow_id,workflow_version,subject_id,token,aggregation
             'If-Match': etag }
 
     #print hostapi+'aggregations/1'
-    print hostapi+'aggregations/'+str(subject_id)
-    print etag
-    response = requests.put(hostapi+'aggregations/'+str(subject_id),headers=head,data=json.dumps(json_values))
+
+    response = requests.put(hostapi+'aggregations/'+str(aggregation_id),headers=head,data=json.dumps(json_values))
     #print hostapi+'aggregations'
     #print
     print "==---"
+    print hostapi+'aggregations/'+str(aggregation_id)
+    print etag
     print response.status_code
     print response.text
     print head
@@ -728,22 +729,24 @@ def find_aggregation_etag(workflow_id,subject_id,token):
 
     #print hostapi+"aggregations?subject_id="+str(subject_id)+"&workflow_id="+str(workflow_id)+"&admin=1"
     response = requests.get(hostapi+"aggregations?subject_id="+str(subject_id)+"&workflow_id="+str(workflow_id)+"&admin=1",headers=head)
-    print response.text
+    #print response.text
     #print response.headers
     body = response.text
 
     # put it in json structure and extract id
     data = json.loads(response.text)
     print data
+
+    #print data
     #print
     resource_id= data["aggregations"][0]["id"]
     #print
 
-    print hostapi+"aggregations/"+str(resource_id)+"?admin=1"
-    assert False
+    #print hostapi+"aggregations/"+str(resource_id)+"?admin=1"
+    #assert False
     response = requests.head(hostapi+"aggregations/"+str(resource_id)+"?admin=1",headers=head)
     etag = response.headers['etag']
-    print etag
+    #print etag
 
     #
     # #response = requests.get(hostapi+"aggregations?subject_id="+str(subject_id)+"&workflow_id="+str(workflow_id)+"&admin=1",headers=head)
@@ -752,7 +755,7 @@ def find_aggregation_etag(workflow_id,subject_id,token):
     #
     # print response.headers
 
-    return etag
+    return resource_id,etag
 
 
 

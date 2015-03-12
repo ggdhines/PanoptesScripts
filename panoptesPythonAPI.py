@@ -617,7 +617,7 @@ def create_workflow(workflow,token):
     data = response.json()
 
     workflowid = data["workflows"][0]["id"]
-
+    
     return workflowid
 
 def get_project_id(project_name,token,owner="zooniverse-beta"):
@@ -644,6 +644,29 @@ def get_project_id(project_name,token,owner="zooniverse-beta"):
 
     return data["projects"][0]["id"]
 
+def get_workflow_version(project_id,token):
+    request = urllib2.Request(hostapi+"workflows?project_id="+str(project_id))
+    request.add_header("Accept","application/vnd.api+json; version=1")
+    request.add_header("Authorization","Bearer "+token)
+
+    # request
+    try:
+        response = urllib2.urlopen(request)
+    except urllib2.HTTPError as e:
+        print 'The server couldn\'t fulfill the request.'
+        print 'Error code: ', e.code
+        print 'Error response body: ', e.read()
+    except urllib2.URLError as e:
+        print 'We failed to reach a server.'
+        print 'Reason: ', e.reason
+    else:
+        # everything is fine
+        body = response.read()
+
+    # put it in json structure and extract id
+    data = json.loads(body)
+    return data["workflows"][0]['version']
+
 def get_workflow_id(project_id,token):
     request = urllib2.Request(hostapi+"workflows?project_id="+str(project_id))
     request.add_header("Accept","application/vnd.api+json; version=1")
@@ -665,8 +688,7 @@ def get_workflow_id(project_id,token):
 
     # put it in json structure and extract id
     data = json.loads(body)
-
-    return data["workflows"][0]['version']
+    return int(data["workflows"][0]['id'])
 
 #https://panoptes-staging.zooniverse.org/api/projects?owner=zooniverse-beta&display_name=Supernovae
 

@@ -13,15 +13,19 @@ import math
 #hostapi = "https://panoptes-staging.zooniverse.org/api/"
 
 class PanoptesAPI:
-    def __init__(self, host, user_name,password):
+    def __init__(self, host, user_name,password,app_client_id):
         self.host = host
         self.host_api = host+"api/"
+
+        #print host
+        #print user_name
+        #print password
 
         #self.token = None
         "Logs user in and gets a bearer token for the given user"
 
         # look like you're a zooniverse front end client
-        app_client_id="535759b966935c297be11913acee7a9ca17c025f9f15520e7504728e71110a27"
+        #app_client_id="535759b966935c297be11913acee7a9ca17c025f9f15520e7504728e71110a27"
         #app_client_id="05fd85e729327b2f71cda394d8e87e042e0b77b05e05280e8246e8bdb05d54ed"
         #app_client_id="05fd85e729327b2f71cda394d8e87e042e0b77b05e05280e8246e8bdb05d54ed"
         #0. Establish a cookie jar

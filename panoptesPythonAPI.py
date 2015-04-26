@@ -17,10 +17,6 @@ class PanoptesAPI:
         self.host = host
         self.host_api = host+"api/"
 
-        #print host
-        #print user_name
-        #print password
-
         #self.token = None
         "Logs user in and gets a bearer token for the given user"
 
@@ -37,17 +33,17 @@ class PanoptesAPI:
         response = opener.open(request)
 
         body = response.read()
-
         # grep for csrf-token
-        csrf_line = re.findall(".+csrf-token.+",body)[0]
-        # and extract it
-        first = string.find(csrf_line,'"')
-        second = string.find(csrf_line,'"',first+1)
-        csrf_token = csrf_line[first+1:second]
+        try:
+            csrf_token = re.findall(".+csrf-token.\s+content=\"(.+)\"",body)[0]
+        except IndexError:
+            print body
+            raise
 
         #2. use the token to get a devise session via JSON stored in a cookie
         devise_login_data=("{\"user\": {\"display_name\":\""+user_name+"\",\"password\":\""+password+
                            "\"}, \"authenticity_token\": \""+csrf_token+"\"}")
+
         request = urllib2.Request(self.host+"users/sign_in",data=devise_login_data)
         request.add_header("Content-Type","application/json")
         request.add_header("Accept","application/json")
@@ -59,16 +55,20 @@ class PanoptesAPI:
             print 'The server couldn\'t fulfill the request.'
             print 'Error code: ', e.code
             print 'Error response body: ', e.read()
+            raise
         except urllib2.URLError as e:
             print 'We failed to reach a server.'
             print 'Reason: ', e.reason
+            raise
         else:
             # everything is fine
             body = response.read()
 
         #3. use the devise session to get a bearer token for API access
-        bearer_req_data=("{\"grant_type\":\"password\",\"client_id\":\"" +
-                         app_client_id + "\"}")
+        if app_client_id != "":
+            bearer_req_data=("{\"grant_type\":\"password\",\"client_id\":\"" + app_client_id + "\"}")
+        else:
+            bearer_req_data=("{\"grant_type\":\"password\"}")
         request = urllib2.Request(self.host+"oauth/token",bearer_req_data)
         request.add_header("Content-Type","application/json")
         request.add_header("Accept","application/json")
@@ -80,9 +80,11 @@ class PanoptesAPI:
             print 'The server couldn\'t fulfill the request.'
             print 'Error code: ', e.code
             print 'Error response body: ', e.read()
+            raise
         except urllib2.URLError as e:
             print 'We failed to reach a server.'
             print 'Reason: ', e.reason
+            raise
         else:
             # everything is fine
             body = response.read()
@@ -671,6 +673,7 @@ class PanoptesAPI:
 
         # put it in json structure and extract id
         data = json.loads(body)
+        #print data["workflows"][0]['version']
         return data["workflows"][0]['version']
 
     def get_workflow_id(self,project_id):
@@ -685,9 +688,11 @@ class PanoptesAPI:
             print 'The server couldn\'t fulfill the request.'
             print 'Error code: ', e.code
             print 'Error response body: ', e.read()
+            raise
         except urllib2.URLError as e:
             print 'We failed to reach a server.'
             print 'Reason: ', e.reason
+            raise
         else:
             # everything is fine
             body = response.read()

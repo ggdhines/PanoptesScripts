@@ -4,97 +4,124 @@ import urllib2
 import cookielib
 import json
 import re
-import string
+import os
 import requests
 import csv
 import math
+import yaml
 
-#host = "https://panoptes-staging.zooniverse.org/"
-#hostapi = "https://panoptes-staging.zooniverse.org/api/"
+# for Greg running on either office/home - which computer am I on?
+if os.path.exists("/home/ggdhines"):
+    base_directory = "/home/ggdhines"
+else:
+    base_directory = "/home/greg"
 
 class PanoptesAPI:
-    def __init__(self, host, user_name,password,app_client_id):
+    def __init__(self):
+        # get my userID and password
+        # purely for testing, if this file does not exist, try opening on Greg's computer
+        try:
+            panoptes_file = open("config/aggregation.yml","rb")
+        except IOError:
+            panoptes_file = open(base_directory+"/Databases/aggregation.yml","rb")
+        api_details = yaml.load(panoptes_file)
+
+        self.environment = "staging"
+
+        user_name = api_details[self.environment]["name"]
+        password = api_details[self.environment]["password"]
+        host = api_details[self.environment]["host"] #"https://panoptes-staging.zooniverse.org/"
+        owner = api_details[self.environment]["owner"] #"brian-testing" or zooniverse
+        project_name = api_details[self.environment]["project_name"]
+        app_client_id = api_details[self.environment]["app_client_id"]
+
         self.host = host
         self.host_api = host+"api/"
 
         #self.token = None
-        "Logs user in and gets a bearer token for the given user"
+        #"Logs user in and gets a bearer token for the given user"
 
         # look like you're a zooniverse front end client
         #app_client_id="535759b966935c297be11913acee7a9ca17c025f9f15520e7504728e71110a27"
         #app_client_id="05fd85e729327b2f71cda394d8e87e042e0b77b05e05280e8246e8bdb05d54ed"
         #app_client_id="05fd85e729327b2f71cda394d8e87e042e0b77b05e05280e8246e8bdb05d54ed"
         #0. Establish a cookie jar
-        cj = cookielib.CookieJar()
-        opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
+        for i in range(20):
+            try:
+                print "connecting to Pantopes, attempt: " + str(i)
+                cj = cookielib.CookieJar()
+                opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 
-        #1. get the csrf token
-        request = urllib2.Request(self.host+"users/sign_in",None)
-        response = opener.open(request)
+                #1. get the csrf token
+                request = urllib2.Request(self.host+"users/sign_in",None)
+                response = opener.open(request)
 
-        body = response.read()
-        # grep for csrf-token
-        try:
-            csrf_token = re.findall(".+csrf-token.\s+content=\"(.+)\"",body)[0]
-        except IndexError:
-            print body
-            raise
+                body = response.read()
+                # grep for csrf-token
+                try:
+                    csrf_token = re.findall(".+csrf-token.\s+content=\"(.+)\"",body)[0]
+                except IndexError:
+                    print body
+                    raise
 
-        #2. use the token to get a devise session via JSON stored in a cookie
-        devise_login_data=("{\"user\": {\"display_name\":\""+user_name+"\",\"password\":\""+password+
-                           "\"}, \"authenticity_token\": \""+csrf_token+"\"}")
+                #2. use the token to get a devise session via JSON stored in a cookie
+                devise_login_data=("{\"user\": {\"display_name\":\""+user_name+"\",\"password\":\""+password+
+                                   "\"}, \"authenticity_token\": \""+csrf_token+"\"}")
 
-        request = urllib2.Request(self.host+"users/sign_in",data=devise_login_data)
-        request.add_header("Content-Type","application/json")
-        request.add_header("Accept","application/json")
+                request = urllib2.Request(self.host+"users/sign_in",data=devise_login_data)
+                request.add_header("Content-Type","application/json")
+                request.add_header("Accept","application/json")
 
-        try:
-            response = opener.open(request)
-        except urllib2.HTTPError as e:
-            print 'In get_bearer_token, stage 2:'
-            print 'The server couldn\'t fulfill the request.'
-            print 'Error code: ', e.code
-            print 'Error response body: ', e.read()
-            raise
-        except urllib2.URLError as e:
-            print 'We failed to reach a server.'
-            print 'Reason: ', e.reason
-            raise
-        else:
-            # everything is fine
-            body = response.read()
+                try:
+                    response = opener.open(request)
+                except urllib2.HTTPError as e:
+                    print 'In get_bearer_token, stage 2:'
+                    print 'The server couldn\'t fulfill the request.'
+                    print 'Error code: ', e.code
+                    print 'Error response body: ', e.read()
+                    raise
+                except urllib2.URLError as e:
+                    print 'We failed to reach a server.'
+                    print 'Reason: ', e.reason
+                    raise
+                else:
+                    # everything is fine
+                    body = response.read()
 
-        #3. use the devise session to get a bearer token for API access
-        if app_client_id != "":
-            bearer_req_data=("{\"grant_type\":\"password\",\"client_id\":\"" + app_client_id + "\"}")
-        else:
-            bearer_req_data=("{\"grant_type\":\"password\"}")
-        request = urllib2.Request(self.host+"oauth/token",bearer_req_data)
-        request.add_header("Content-Type","application/json")
-        request.add_header("Accept","application/json")
+                #3. use the devise session to get a bearer token for API access
+                if app_client_id != "":
+                    bearer_req_data=("{\"grant_type\":\"password\",\"client_id\":\"" + app_client_id + "\"}")
+                else:
+                    bearer_req_data=("{\"grant_type\":\"password\"}")
+                request = urllib2.Request(self.host+"oauth/token",bearer_req_data)
+                request.add_header("Content-Type","application/json")
+                request.add_header("Accept","application/json")
 
-        try:
-            response = opener.open(request)
-        except urllib2.HTTPError as e:
-            print 'In get_bearer_token, stage 3:'
-            print 'The server couldn\'t fulfill the request.'
-            print 'Error code: ', e.code
-            print 'Error response body: ', e.read()
-            raise
-        except urllib2.URLError as e:
-            print 'We failed to reach a server.'
-            print 'Reason: ', e.reason
-            raise
-        else:
-            # everything is fine
-            body = response.read()
+                try:
+                    response = opener.open(request)
+                except urllib2.HTTPError as e:
+                    print 'In get_bearer_token, stage 3:'
+                    print 'The server couldn\'t fulfill the request.'
+                    print 'Error code: ', e.code
+                    print 'Error response body: ', e.read()
+                    raise
+                except urllib2.URLError as e:
+                    print 'We failed to reach a server.'
+                    print 'Reason: ', e.reason
+                    raise
+                else:
+                    # everything is fine
+                    body = response.read()
 
-        # extract the bearer token
-        json_data = json.loads(body)
-        bearer_token = json_data["access_token"]
+                # extract the bearer token
+                json_data = json.loads(body)
+                bearer_token = json_data["access_token"]
 
-        self.token = bearer_token
-        #return bearer_token
+                self.token = bearer_token
+                break
+            except (urllib2.HTTPError,urllib2.URLError) as e:
+                print "trying to connect/init again again"
+                pass
 
     def get_userid_from_username(self, user_name):
         "Gets a user's ID from a username; returns -1 if none"
